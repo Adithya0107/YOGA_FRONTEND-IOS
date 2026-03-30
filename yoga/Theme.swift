@@ -2,8 +2,8 @@ import SwiftUI
 
 struct AppTheme {
     static let primaryPurple = Color(red: 108/255, green: 71/255, blue: 255/255)
-    static let baseURL = "http://Adityas-MacBook-Air.local:5001/user"
-    static let yogaBaseURL = "http://Adityas-MacBook-Air.local:5001/yoga"
+    static let baseURL = "http://180.235.121.245:8003/user"
+    static let yogaBaseURL = "http://180.235.121.245:8003/yoga"
     static let accentPurple = Color(red: 140/255, green: 100/255, blue: 255/255)
     static let lightLavender = Color(red: 250/255, green: 247/255, blue: 255/255)
     

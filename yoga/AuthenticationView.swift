@@ -67,7 +67,8 @@ struct AuthenticationView: View {
     }
 
     private func isEmailValid(_ email: String) -> Bool {
-        let emailRegEx = "[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-za-z]{2,64}"
+        // Enforce: 3+ chars @ 3+ chars . 2+ chars
+        let emailRegEx = "^[A-Z0-9a-z._%+-]{3,}@[A-Za-z0-9-]{3,}\\.[A-za-z]{2,64}$"
         let emailPred = NSPredicate(format:"SELF MATCHES %@", emailRegEx)
         return emailPred.evaluate(with: email)
     }
@@ -704,9 +705,22 @@ struct AuthenticationView: View {
                 
                 VStack(spacing: 24) {
                     NeumorphicTextField(title: "Full Name", placeholder: "Enter your name", text: $fullName, icon: "person")
-                    NeumorphicTextField(title: "Phone Number", placeholder: "123-456-7890", text: $phoneNumber, icon: "phone", keyboardType: .phonePad)
+                        .onChange(of: fullName) { newValue in
+                            // Allow only alphabets and spaces
+                            let filtered = newValue.filter { $0.isLetter || $0.isWhitespace }
+                            if filtered != newValue {
+                                fullName = filtered
+                            }
+                        }
+                    NeumorphicTextField(title: "Phone Number", placeholder: "Enter 10 digits", text: $phoneNumber, icon: "phone", keyboardType: .phonePad)
                         .onChange(of: phoneNumber) { newValue in
-                            let filtered = newValue.filter { "0123456789".contains($0) }
+                            var filtered = newValue.filter { "0123456789".contains($0) }
+                            
+                            // Ensure it starts with 6, 7, 8, or 9
+                            if let first = filtered.first, !"6789".contains(first) {
+                                filtered = ""
+                            }
+                            
                             if filtered.count > 10 {
                                 phoneNumber = String(filtered.prefix(10))
                             } else {
@@ -763,7 +777,7 @@ struct AuthenticationView: View {
                         .cornerRadius(25)
                         .shadow(color: AppTheme.primaryPurple.opacity(0.35), radius: 15, x: 0, y: 10)
                     }
-                    .disabled(isLoading || fullName.isEmpty || email.isEmpty || password.isEmpty || !isPasswordValid || password != confirmPassword)
+                    .disabled(isLoading || fullName.isEmpty || phoneNumber.count != 10 || !isEmailValid(email) || password.isEmpty || !isPasswordValid || password != confirmPassword)
                 }
                 .padding(.top, 10)
                 
@@ -853,7 +867,7 @@ struct AuthenticationView: View {
                         .cornerRadius(25)
                         .shadow(color: AppTheme.primaryPurple.opacity(0.35), radius: 15, x: 0, y: 10)
                     }
-                    .disabled(isLoading || email.isEmpty || password.isEmpty)
+                    .disabled(isLoading || !isEmailValid(email) || password.isEmpty)
                 }
                 
                 HStack {
