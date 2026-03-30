@@ -8,8 +8,7 @@ struct AICoachView: View {
 
     var body: some View {
         ZStack {
-            Color(red: 250/255, green: 250/255, blue: 252/255)
-                .ignoresSafeArea()
+            ZenBackgroundView()
 
             VStack(spacing: 0) {
                 // ── 1. HEADER ─────────────────────────────────────────
@@ -57,7 +56,7 @@ struct AICoachView: View {
                     inputRow
                         .padding(.vertical, 12)
                 }
-                .background(Color(red: 250/255, green: 250/255, blue: 252/255))
+                .glassCard(cornerRadius: 30) // Floating input bar
             }
         }
         .onChange(of: isInputFocused) { focused in
@@ -131,19 +130,25 @@ struct AICoachView: View {
         .padding(.horizontal, 20)
         .padding(.top, 50)
         .padding(.bottom, 12)
-        .background(Color.white)
+        .glassCard(cornerRadius: 0) // Header can be a flat glass slab
         .overlay(Divider().opacity(0.1), alignment: .bottom)
     }
 
     private var suggestionPills: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 12) {
-                SuggestionPill(icon: "brain.fill", text: "POSE\nHELP")
-                    .onTapGesture { messageText = "I need help with a yoga pose" }
-                SuggestionPill(icon: "apple.logo", text: "DIET\nPLAN")
-                    .onTapGesture { messageText = "Create a vegetarian diet plan" }
                 SuggestionPill(icon: "heart.fill", text: "BACK\nPAIN")
-                    .onTapGesture { messageText = "Yoga for back pain" }
+                    .onTapGesture { sendMessageImmediately("Yoga for back pain") }
+                SuggestionPill(icon: "bolt.fill", text: "NECK\nPAIN")
+                    .onTapGesture { sendMessageImmediately("I have neck pain") }
+                SuggestionPill(icon: "moon.fill", text: "SLEEP\nHELP")
+                    .onTapGesture { sendMessageImmediately("I can't sleep well") }
+                SuggestionPill(icon: "flame.fill", text: "WEIGHT\nLOSS")
+                    .onTapGesture { sendMessageImmediately("Weight loss diet plan") }
+                SuggestionPill(icon: "apple.logo", text: "VEG\nDIET")
+                    .onTapGesture { sendMessageImmediately("Vegetarian diet plan") }
+                SuggestionPill(icon: "brain.fill", text: "STRESS\nRELIEF")
+                    .onTapGesture { sendMessageImmediately("Yoga for stress and anxiety") }
             }
             .padding(.horizontal, 20)
         }
@@ -216,7 +221,7 @@ struct AICoachView: View {
             }
 
             VStack(alignment: message.isUser ? .trailing : .leading, spacing: 6) {
-                Text(message.text)
+                Text(LocalizedStringKey(message.text))
                     .font(.system(size: 15, weight: .medium))
                     .foregroundColor(
                         message.isUser
@@ -227,7 +232,7 @@ struct AICoachView: View {
                     .padding(18)
                     .background(message.isUser ? AppTheme.primaryPurple : Color.white)
                     .cornerRadius(22)
-                    .cornerRadius(4, corners: message.isUser ? [.topRight] : [.topLeft])
+                    .cornerRadius(4, corners: [message.isUser ? .topRight : .topLeft])
                     .shadow(color: .black.opacity(0.03), radius: 8, y: 4)
 
                 Text(formatTimestamp(message.timestamp))
@@ -262,6 +267,10 @@ struct AICoachView: View {
         .clipShape(Capsule())
         .shadow(color: .black.opacity(0.04), radius: 6, y: 3)
         .padding(.leading, 20)
+    }
+
+    private func sendMessageImmediately(_ text: String) {
+        viewModel.sendMessage(text)
     }
 
     private func formatTimestamp(_ date: Date) -> String {

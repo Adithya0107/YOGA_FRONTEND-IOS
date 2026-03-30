@@ -33,14 +33,14 @@ struct StatsCard: View {
                         Text(subtitle)
                             .font(.system(size: 14, weight: .bold))
                             .foregroundColor(Color(red: 26/255, green: 32/255, blue: 44/255))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
                     }
                 }
             }
             Spacer()
         }
         .padding(18)
-        .background(Color.white)
-        .cornerRadius(24)
-        .shadow(color: Color.black.opacity(0.04), radius: 12, y: 6)
+        .glassCard(cornerRadius: 24)
     }
 }

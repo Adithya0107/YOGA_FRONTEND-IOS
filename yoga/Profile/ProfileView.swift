@@ -79,25 +79,6 @@ struct ProfileView: View {
                     .padding(.horizontal, 20)
                     .padding(.bottom, 10)
                     
-                    // ─── STATS STRIP ───
-                    HStack(spacing: 0) {
-                        StatsPill(value: "\(currentStreak)", label: "Day Streak", icon: "flame.fill", color: Color(red: 251/255, green: 146/255, blue: 60/255))
-                        
-                        Rectangle().fill(Color.gray.opacity(0.15)).frame(width: 1, height: 36)
-                        
-                        StatsPill(value: "\(totalMinutes)", label: "Minutes", icon: "clock.fill", color: AppTheme.primaryPurple)
-                        
-                        Rectangle().fill(Color.gray.opacity(0.15)).frame(width: 1, height: 36)
-                        
-                        StatsPill(value: "\(ActivityManager.shared.proLevel)", label: "Level", icon: "star.fill", color: Color(red: 234/255, green: 179/255, blue: 8/255))
-                    }
-                    .padding(.vertical, 16)
-                    .background(Color.white)
-                    .cornerRadius(20)
-                    .shadow(color: .black.opacity(0.03), radius: 8, y: 3)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 24)
-                    
                     // ─── SECTION: ACCOUNT ───
                     SettingsSectionHeader(title: "ACCOUNT")
                     
@@ -220,6 +201,7 @@ struct ProfileView: View {
     .alert("Log Out", isPresented: $showLogoutAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Log Out", role: .destructive) { 
+                clearAllLocalData()
                 isAuthenticated = false
             }
         } message: {

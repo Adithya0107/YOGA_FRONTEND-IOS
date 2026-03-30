@@ -7,6 +7,7 @@ struct ProfileDetailView: View {
     @AppStorage("userExperience") private var level = "Beginner"
     @AppStorage("userAge") private var age = "18-24"
     @AppStorage("userWorkoutPreference") private var workoutPreference = "Morning"
+    @AppStorage("yogaChallengeMonths") private var challengeMonths: Int = 6
     
     var body: some View {
         ZStack {
@@ -85,11 +86,32 @@ struct ProfileDetailView: View {
                             Spacer()
                             Picker("", selection: $workoutPreference) {
                                 Text("Morning").tag("Morning")
-                                Text("Noon").tag("Noon")
                                 Text("Evening").tag("Evening")
                             }
                             .tint(.gray)
                             .onChange(of: workoutPreference) { _ in syncProfileWithBackend() }
+                        }
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        
+                        Divider().padding(.leading, 56)
+                        
+                        HStack(spacing: 14) {
+                            Image(systemName: "calendar.badge.clock")
+                                .font(.system(size: 18))
+                                .foregroundColor(Color(red: 34/255, green: 197/255, blue: 94/255))
+                                .frame(width: 32)
+                            Text("Yoga Challenge")
+                                .font(.system(size: 15, weight: .medium))
+                                .foregroundColor(AppTheme.textColor)
+                            Spacer()
+                            Picker("", selection: $challengeMonths) {
+                                Text("3 Months").tag(3)
+                                Text("6 Months").tag(6)
+                                Text("8 Months").tag(8)
+                                Text("12 Months").tag(12)
+                            }
+                            .tint(.gray)
                         }
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
@@ -118,7 +140,7 @@ struct ProfileDetailView: View {
     
     private func syncProfileWithBackend() {
         guard let url = URL(string: "\(AppTheme.baseURL)/update_profile") else { return }
-        let userId = UserDefaults.standard.integer(forKey: "userId")
+        let userId = UserDefaults.standard.integer(forKey: "user_id")
         
         let profileData: [String: Any] = [
             "goal": goal,

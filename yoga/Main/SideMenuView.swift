@@ -18,22 +18,6 @@ struct SideMenuView: View {
                 Color(red: 250/255, green: 250/255, blue: 252/255).ignoresSafeArea()
                 
                 VStack(alignment: .leading, spacing: 0) {
-                    // Back Button
-                    Button(action: { 
-                        isPresented = false
-                        dismiss()
-                    }) {
-                        Image(systemName: "arrow.left")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.black.opacity(0.6))
-                            .frame(width: 45, height: 45)
-                            .background(Color.white)
-                            .clipShape(Circle())
-                            .shadow(color: Color.black.opacity(0.05), radius: 5, x: 0, y: 5)
-                            .padding(.leading, 24)
-                            .padding(.top, 20)
-                    }
-                    
                     // Header Profile
                     VStack(alignment: .leading, spacing: 12) {
                         Image(systemName: "person.crop.circle.fill")

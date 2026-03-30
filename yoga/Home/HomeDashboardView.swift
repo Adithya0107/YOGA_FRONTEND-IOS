@@ -57,7 +57,7 @@ struct HomeDashboardView: View {
     
     var body: some View {
         ZStack {
-            Color(red: 247/255, green: 248/255, blue: 250/255) // Light iOS background
+            ZenBackgroundView()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -77,29 +77,29 @@ struct HomeDashboardView: View {
                                 StatsCard(
                                     title: "DAY STREAK",
                                     value: "\(apiService.progress.streak_days)",
-                                    subtitle: "Days",
+                                    subtitle: "days",
                                     icon: "flame.fill",
                                     iconColor: Color(red: 251/255, green: 146/255, blue: 60/255)
                                 )
-                                .frame(width: 160)
+                                .frame(width: 175)
                                 
                                 StatsCard(
                                     title: "TOTAL TIME",
                                     value: "\(activityManager.totalPracticeMinutes)",
-                                    subtitle: "Mins",
+                                    subtitle: "min",
                                     icon: "clock.fill",
                                     iconColor: AppTheme.primaryPurple
                                 )
-                                .frame(width: 160)
+                                .frame(width: 175)
                                 
                                 StatsCard(
                                     title: "LEVEL",
-                                    value: "\(apiService.progress.level)",
+                                    value: "\(activityManager.proLevel)",
                                     subtitle: "",
                                     icon: "star.fill",
                                     iconColor: Color(red: 65/255, green: 182/255, blue: 255/255)
                                 )
-                                .frame(width: 160)
+                                .frame(width: 175)
                             }
                             .padding(.horizontal, 24)
                         }
@@ -124,15 +124,15 @@ struct HomeDashboardView: View {
                             })
                             .padding(.horizontal, 24)
                             
+                            .padding(.horizontal, 24)
+                            
                             Button(action: { showFullCalendar = true }) {
                                 Text("View All Months")
                                     .font(.system(size: 13, weight: .bold))
                                     .foregroundColor(AppTheme.primaryPurple)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 12)
-                                    .background(Color.white)
-                                    .cornerRadius(15)
-                                    .shadow(color: Color.black.opacity(0.02), radius: 5, y: 2)
+                                    .glassCard(cornerRadius: 15)
                             }
                             .padding(.horizontal, 24)
                         }

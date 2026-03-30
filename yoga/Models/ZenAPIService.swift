@@ -46,8 +46,7 @@ class ZenAPIService: ObservableObject {
     @Published var errorMessage: String? = nil
 
     private var userId: Int {
-        UserDefaults.standard.integer(forKey: "user_id") > 0
-            ? UserDefaults.standard.integer(forKey: "user_id") : 1
+        UserDefaults.standard.integer(forKey: "user_id")
     }
 
     // MARK: - Fetch All Progress Data
@@ -94,6 +93,23 @@ class ZenAPIService: ObservableObject {
                 guard let data = data, error == nil else { return }
                 if let decoded = try? JSONDecoder().decode([ZenActivity].self, from: data) {
                     self?.activities = decoded
+                    
+                    // Sync backend data into ActivityManager to keep graphs and calendar cohesive
+                    let calendar = Calendar.current
+                    let fmt = DateFormatter()
+                    fmt.dateFormat = "yyyy-MM-dd"
+                    
+                    for act in decoded {
+                        if let date = fmt.date(from: act.date) {
+                            let startOfDay = calendar.startOfDay(for: date)
+                            // We mark it as completed if it's "done" in backend
+                            let status: ActivityStatus = (act.status == "done") ? .completed : .notDone
+                            // We only override if it's not already logged locally with higher detail (like halfDay/restDay)
+                            if ActivityManager.shared.activities[startOfDay] == nil {
+                                ActivityManager.shared.markDate(startOfDay, status: status)
+                            }
+                        }
+                    }
                 }
             }
         }.resume()
@@ -179,8 +195,33 @@ class ZenAPIService: ObservableObject {
 
     // MARK: - Save Changes (Age/Weight/Height)
     func saveChanges(age: Int, weight: Int, height: Int, completion: @escaping (Bool, ZenProgress?) -> Void) {
-        // Reuse add_progress for basic changes or use update_profile
-        completion(true, self.progress)
+        let url = URL(string: "\(AppTheme.baseURL)/update_profile")!
+        let body: [String: Any] = [
+            "user_id": userId,
+            "profile": [
+                "age": "\(age)",
+                "weight": "\(weight)",
+                "height": "\(height)",
+                "name": UserDefaults.standard.string(forKey: "userFullName") ?? "Alex",
+                "goal": UserDefaults.standard.string(forKey: "userGoal") ?? "Flexibility",
+                "experience": UserDefaults.standard.string(forKey: "userExperience") ?? "Beginner"
+            ]
+        ]
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, _, error in
+            DispatchQueue.main.async {
+                let success = error == nil
+                if success {
+                    self?.fetchAll()
+                }
+                completion(success, self?.progress)
+            }
+        }.resume()
     }
 
     // MARK: - AI Coach Message

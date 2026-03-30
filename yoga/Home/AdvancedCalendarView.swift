@@ -5,21 +5,29 @@ struct AdvancedCalendarView: View {
     @ObservedObject private var activityManager = ActivityManager.shared
     @State private var selectedDate: Date?
     @State private var showEditSheet = false
+    @AppStorage("yogaChallengeMonths") private var challengeMonths: Int = 6
+    @AppStorage("userJoinDate") private var joinDateString: String = ""
     
     let calendar = Calendar.current
-    var months: [Date] {
-        let now = Date()
+    
+    private var challengeStartDate: Date {
+        // Parse join date or use March 2026 as default
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMMM yyyy"
+        if let parsed = formatter.date(from: joinDateString) {
+            return parsed
+        }
         var comps = DateComponents()
         comps.year = 2026
         comps.month = 3
         comps.day = 1
-        guard let start = calendar.date(from: comps) else { return [] }
-        
-        let diff = calendar.dateComponents([.month], from: start, to: now).month ?? 0
-        let maxOffset = diff // Only show up to current month for activity tracking
-        
-        return (0...maxOffset).compactMap { offset in
-            calendar.date(byAdding: .month, value: offset, to: start)
+        return calendar.date(from: comps) ?? Date()
+    }
+    
+    var months: [Date] {
+        // Show exactly `challengeMonths` months starting from the challenge start date
+        return (0..<challengeMonths).compactMap { offset in
+            calendar.date(byAdding: .month, value: offset, to: challengeStartDate)
         }
     }
     
@@ -114,7 +122,11 @@ struct MonthGridView: View {
         LazyVGrid(columns: columns, spacing: 10) {
             ForEach(0..<days.count, id: \.self) { index in
                 if let date = days[index] {
-                    DateCell(date: date, status: activityManager.activities[calendar.startOfDay(for: date)]?.status)
+                    let startOfDay = calendar.startOfDay(for: date)
+                    let status = activityManager.activities[startOfDay]?.status
+                    let computedStatus: ActivityStatus? = (status == nil && startOfDay < calendar.startOfDay(for: Date())) ? .notDone : status
+                    
+                    DateCell(date: date, status: computedStatus)
                         .onTapGesture {
                             onDateTap(date)
                         }

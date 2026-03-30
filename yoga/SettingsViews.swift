@@ -114,7 +114,7 @@ extension EditProfileView {
         guard let url = URL(string: "\(AppTheme.baseURL)/update_profile") else { return }
         
         // userId from AppStorage
-        let userIdValue = UserDefaults.standard.integer(forKey: "userId")
+        let userIdValue = UserDefaults.standard.integer(forKey: "user_id")
         
         let profileData: [String: Any?] = [
             "name": name,
@@ -193,11 +193,7 @@ struct HealthGoalsView: View {
                 .padding(.horizontal, 20)
                 
                 Button(action: {
-                    withAnimation(.spring(response: 0.4)) { showSaved = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        showSaved = false
-                        dismiss()
-                    }
+                    saveGoals()
                 }) {
                     HStack(spacing: 8) {
                         if showSaved {
@@ -220,6 +216,45 @@ struct HealthGoalsView: View {
         .background(AppTheme.backgroundColor.ignoresSafeArea())
         .navigationTitle("Health Goals")
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+extension HealthGoalsView {
+    private func saveGoals() {
+        guard let url = URL(string: "\(AppTheme.baseURL)/update_profile") else { return }
+        
+        let userIdValue = UserDefaults.standard.integer(forKey: "user_id")
+        
+        let profileData: [String: Any?] = [
+            "name": UserDefaults.standard.string(forKey: "userFullName"),
+            "weight": targetWeight,
+            "goal": UserDefaults.standard.string(forKey: "userGoal"),
+            "activityLevel": UserDefaults.standard.string(forKey: "userActivityLevel"),
+            "experience": UserDefaults.standard.string(forKey: "userExperience")
+        ]
+        
+        let parameters: [String: Any] = [
+            "user_id": userIdValue,
+            "profile": profileData
+        ]
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try? JSONSerialization.data(withJSONObject: parameters)
+        
+        URLSession.shared.dataTask(with: request) { _, _, _ in
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.4)) { showSaved = true }
+                ZenAPIService.shared.fetchPlan() // Refresh plan on goal change
+                ZenAPIService.shared.fetchProgress()
+                
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                    showSaved = false
+                    dismiss()
+                }
+            }
+        }.resume()
     }
 }
 
@@ -489,7 +524,7 @@ struct SecurityPrivacyView: View {
 // MARK: - Change Password
 struct ChangePasswordView: View {
     @Environment(\.dismiss) var dismiss
-    @AppStorage("userId") private var userId: Int = -1
+    @AppStorage("user_id") private var userId: Int = -1
     @State private var oldPassword = ""
     @State private var newPassword = ""
     @State private var confirmPassword = ""

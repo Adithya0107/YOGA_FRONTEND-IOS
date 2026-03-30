@@ -31,7 +31,10 @@ struct YogaVideoPlayerView: View {
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    Button(action: { dismiss() }) {
+                    Button(action: {
+                        completeSession() // Save state before exit
+                        dismiss()
+                    }) {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.white)
@@ -76,7 +79,11 @@ struct YogaVideoPlayerView: View {
                 .padding(.vertical, 24)
                 
                 // Center Video Player
-                YouTubePlayerView(videoURL: style.videoURL ?? "", isPlaying: $isPracticing) { state in
+                YouTubePlayerView(
+                    videoURL: style.videoURL ?? "",
+                    startTime: ActivityManager.shared.getWatchProgress(title: style.name),
+                    isPlaying: $isPracticing
+                ) { state in
                     DispatchQueue.main.async {
                         if state == 1 { // PLAYING
                             isPracticing = true
@@ -137,9 +144,20 @@ struct YogaVideoPlayerView: View {
                 .padding(.bottom, 50)
             }
         }
+        .onAppear {
+            // Load previous watch progress
+            self.practiceSeconds = ActivityManager.shared.getWatchProgress(title: style.name)
+        }
         .onReceive(timer) { _ in
             if isPracticing {
                 practiceSeconds += 1
+                // Continuously update progress and actual time spent
+                ActivityManager.shared.saveWatchProgress(
+                    title: style.name,
+                    position: practiceSeconds,
+                    deltaSeconds: 1,
+                    duration: style.totalDuration
+                )
             }
         }
         .navigationBarHidden(true)

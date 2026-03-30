@@ -102,8 +102,8 @@ struct EnhancedVideoPlayerView: View {
             ZStack(alignment: .bottomTrailing) {
                 YouTubePlayerView(videoURL: style.videoURL ?? "", isPlaying: $isPracticing, cornerRadius: 0, shadowRadius: 0) { state in
                     DispatchQueue.main.async {
-                        // Only tick when state is 1 (Playing)
                         isPracticing = (state == 1)
+                        if state == 0 { finishSession() }
                     }
                 }
                 .ignoresSafeArea()
@@ -120,7 +120,10 @@ struct EnhancedVideoPlayerView: View {
                         .font(.system(size: 10, weight: .black))
                         .foregroundColor(AppTheme.primaryPurple)
                     Spacer()
-                    Button(action: { dismiss() }) {
+                    Button(action: { 
+                        finishSession()
+                        dismiss() 
+                    }) {
                         Image(systemName: "xmark.circle.fill")
                             .foregroundColor(.gray.opacity(0.3))
                             .font(.system(size: 24))
@@ -167,6 +170,7 @@ struct EnhancedVideoPlayerView: View {
             YouTubePlayerView(videoURL: style.videoURL ?? "", isPlaying: $isPracticing, cornerRadius: 0, shadowRadius: 0) { state in
                 DispatchQueue.main.async {
                     isPracticing = (state == 1)
+                    if state == 0 { finishSession() }
                 }
             }
             .ignoresSafeArea()
@@ -229,7 +233,10 @@ struct EnhancedVideoPlayerView: View {
     
     private var headerBar: some View {
         HStack {
-            Button(action: { dismiss() }) {
+            Button(action: { 
+                finishSession()
+                dismiss() 
+            }) {
                 Image(systemName: "chevron.left")
                     .font(.system(size: 18, weight: .bold))
                     .foregroundColor(AppTheme.primaryPurple)
@@ -264,6 +271,7 @@ struct EnhancedVideoPlayerView: View {
                 YouTubePlayerView(videoURL: style.videoURL ?? "", isPlaying: $isPracticing, cornerRadius: 20, shadowRadius: 0) { state in
                     DispatchQueue.main.async {
                         isPracticing = (state == 1)
+                        if state == 0 { finishSession() }
                     }
                 }
             }
@@ -279,19 +287,19 @@ struct EnhancedVideoPlayerView: View {
         HStack(spacing: 12) {
             StatBox(title: "CALORIES", value: "\(tracker.calculateCalories())", icon: "flame.fill", color: .orange)
             StatBox(title: "INTENSITY", value: style.level.rawValue.uppercased(), icon: "chart.bar.fill", color: AppTheme.primaryPurple)
-            StatBox(title: "GOAL", value: "\(style.level.minPracticeTime / 60)m", icon: "target", color: .green)
         }
         .padding(.horizontal, 20)
     }
     
     private var progressSection: some View {
         VStack(spacing: 14) {
+            let percentage = min(1.0, Double(tracker.activeSeconds) / Double(max(1, style.totalDuration)))
             HStack {
-                Text("\(Int(min(100.0, Double(tracker.activeSeconds) / Double(max(1, style.level.minPracticeTime)) * 100.0)))% COMPLETED")
+                Text("\(Int(percentage * 100.0))% COMPLETED")
                     .font(.system(size: 10, weight: .black))
-                    .foregroundColor(AppTheme.primaryPurple.opacity(0.6))
+                    .foregroundColor(AppTheme.primaryPurple.opacity(0.8))
                 Spacer()
-                Text(timeString(max(0, style.level.minPracticeTime - tracker.activeSeconds)))
+                Text(timeString(max(0, style.totalDuration - tracker.activeSeconds)))
                     .font(.system(size: 10, weight: .bold))
                     .foregroundColor(AppTheme.primaryPurple.opacity(0.8))
             }
@@ -300,8 +308,8 @@ struct EnhancedVideoPlayerView: View {
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.gray.opacity(0.08)).frame(height: 8)
                 Capsule()
-                    .fill(LinearGradient(colors: [AppTheme.primaryPurple, Color(red: 65/255, green: 182/255, blue: 255/255)], startPoint: .leading, endPoint: .trailing))
-                    .frame(width: max(16, CGFloat(min(1.0, Double(tracker.activeSeconds) / Double(max(1, style.level.minPracticeTime)))) * (UIScreen.main.bounds.width - 40)), height: 8)
+                    .fill(AppTheme.primaryPurple)
+                    .frame(width: max(16, CGFloat(percentage) * (UIScreen.main.bounds.width - 40)), height: 8)
                     .animation(.linear(duration: 0.2), value: tracker.activeSeconds)
             }
         }
@@ -353,29 +361,27 @@ struct EnhancedVideoPlayerView: View {
     
     private var bottomControls: some View {
         HStack(spacing: 16) {
+            let percentage = Double(tracker.activeSeconds) / Double(max(1, style.totalDuration))
+            let isDone = percentage >= 1.0 || showCompletionCelebration
+            
             Button(action: {
                 if !tracker.isSessionActive { tracker.startSession() }
-                isPracticing.toggle()
+                if !isDone { isPracticing.toggle() }
             }) {
                 HStack(spacing: 10) {
-                    Image(systemName: isPracticing ? "pause.fill" : "play.fill").font(.system(size: 16, weight: .bold))
-                    Text(isPracticing ? "PAUSE SESSION" : "START PRACTICE").font(.system(size: 14, weight: .black))
+                    if isDone {
+                        Text("COMPLETED ✓").font(.system(size: 14, weight: .black))
+                    } else {
+                        Image(systemName: isPracticing ? "pause.fill" : "play.fill").font(.system(size: 16, weight: .bold))
+                        Text(isPracticing ? "PAUSE SESSION" : "START PRACTICE").font(.system(size: 14, weight: .black))
+                    }
                 }
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .frame(height: 56)
-                .background(isPracticing ? Color.orange : AppTheme.primaryPurple)
+                .background(isDone ? Color.green : (isPracticing ? Color.orange : AppTheme.primaryPurple))
                 .cornerRadius(28)
-                .shadow(color: (isPracticing ? Color.orange : AppTheme.primaryPurple).opacity(0.3), radius: 10, y: 5)
-            }
-            
-            Button(action: { finishSession() }) {
-                Image(systemName: "flag.checkered").font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.white)
-                    .frame(width: 56, height: 56)
-                    .background(Color(red: 34/255, green: 197/255, blue: 94/255))
-                    .cornerRadius(28)
-                    .shadow(color: Color.green.opacity(0.3), radius: 10, y: 5)
+                .shadow(color: (isDone ? Color.green : (isPracticing ? Color.orange : AppTheme.primaryPurple)).opacity(0.3), radius: 10, y: 5)
             }
         }
         .padding(.horizontal, 24)
@@ -387,20 +393,36 @@ struct EnhancedVideoPlayerView: View {
         Group {
             if showCompletionCelebration {
                 ZStack {
-                    Color.black.opacity(0.9).ignoresSafeArea()
-                    VStack(spacing: 25) {
-                        Image(systemName: "sparkles").font(.system(size: 60)).foregroundColor(.yellow)
-                        Text("Session Complete!").font(.system(size: 32, weight: .black, design: .rounded)).foregroundColor(.white)
-                        VStack(spacing: 10) {
-                            Text("\(tracker.activeSeconds / 60) Minutes Practiced").font(.system(size: 18, weight: .bold)).foregroundColor(.white.opacity(0.8))
-                            Text("\(tracker.calculateCalories()) Calories Burned").font(.system(size: 18, weight: .bold)).foregroundColor(.white.opacity(0.8))
+                    Color.black.opacity(0.92).ignoresSafeArea()
+                    VStack(spacing: 30) {
+                        ZStack {
+                            Circle().fill(Color.green.opacity(0.1)).frame(width: 120, height: 120)
+                            Image(systemName: "checkmark.seal.fill").font(.system(size: 60)).foregroundColor(.green)
                         }
+                        
+                        Text("Session Complete!")
+                            .font(.system(size: 32, weight: .black, design: .rounded))
+                            .foregroundColor(.white)
+                        
+                        VStack(spacing: 12) {
+                            Text("GREAT JOB!")
+                                .font(.system(size: 16, weight: .black))
+                                .foregroundColor(.white)
+                            Text("You burned \(tracker.calculateCalories()) calories today!")
+                                .font(.system(size: 18, weight: .medium))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(.vertical, 10)
+                        
                         Button(action: { dismiss() }) {
-                            Text("GREAT JOB!").font(.system(size: 16, weight: .black)).foregroundColor(.white)
-                                .padding(.horizontal, 40).padding(.vertical, 18).background(AppTheme.primaryPurple).cornerRadius(20)
+                            Text("CONTINUE").font(.system(size: 16, weight: .black)).foregroundColor(.white)
+                                .padding(.horizontal, 50).padding(.vertical, 18)
+                                .background(AppTheme.primaryPurple)
+                                .cornerRadius(20)
                         }
                         .padding(.top, 20)
                     }
+                    .padding(30)
                 }
             }
         }
@@ -428,25 +450,30 @@ struct EnhancedVideoPlayerView: View {
         isPracticing = false
         tracker.stopSession()
         
-        let status = tracker.calculateStatus()
-        let completion = min(100.0, Double(tracker.activeSeconds) / Double(max(1, style.level.minPracticeTime)) * 100.0)
+        let completion = min(100.0, Double(tracker.activeSeconds) / Double(max(1, style.totalDuration)) * 100.0)
         
-        let record = SessionRecord(
-            id: UUID(),
-            date: Date(),
-            styleName: style.name,
-            level: style.level,
-            totalVideoDuration: style.level.minPracticeTime,
-            actualPracticeTime: tracker.activeSeconds,
-            completionPercentage: completion,
-            status: status,
-            caloriesBurned: tracker.calculateCalories()
-        )
-        
-        ActivityManager.shared.addSessionRecord(record)
-        
-        withAnimation {
-            showCompletionCelebration = true
+        // Log to ActivityManager if we have any active seconds
+        if tracker.activeSeconds > 0 {
+            let status = tracker.calculateStatus()
+            let record = SessionRecord(
+                id: UUID(),
+                date: Date(),
+                styleName: style.name,
+                level: style.level,
+                totalVideoDuration: style.totalDuration,
+                actualPracticeTime: tracker.activeSeconds,
+                completionPercentage: completion,
+                status: status,
+                caloriesBurned: tracker.calculateCalories()
+            )
+            
+            ActivityManager.shared.addSessionRecord(record)
+            
+            if status == .completed || completion >= 95.0 {
+                withAnimation {
+                    showCompletionCelebration = true
+                }
+            }
         }
     }
 }

@@ -3,6 +3,7 @@ import PhotosUI
 
 struct ProgressViewTab: View {
     @ObservedObject private var zenAPI = ZenAPIService.shared
+    @ObservedObject private var activityManager = ActivityManager.shared
 
     // Local editable fields
     @State private var ageInput    = ""
@@ -19,6 +20,7 @@ struct ProgressViewTab: View {
     @State private var isSaving            = false
     @State private var showStartDatePicker = false
     @State private var showEndDatePicker   = false
+    @State private var showAnalysis        = false
 
     // Consistency grid date range
     @AppStorage("consistencyStartDate") private var startInterval: Double = Date().addingTimeInterval(-90 * 86400).timeIntervalSince1970
@@ -55,8 +57,22 @@ struct ProgressViewTab: View {
     }()
 
     // Computed values
-    private var bmi: Double { zenAPI.progress.bmi }
-    private var healthStatus: String { zenAPI.progress.health_status }
+    private var bmi: Double {
+        if let w = Double(weightInput), let h = Double(heightInput), h > 0 {
+            return w / pow(h / 100.0, 2)
+        }
+        return zenAPI.progress.bmi
+    }
+    
+    private var healthStatus: String {
+        let currentBMI = bmi
+        if currentBMI == 0 { return zenAPI.progress.health_status }
+        if currentBMI < 18.5 { return "Underweight" }
+        if currentBMI < 25 { return "Normal" }
+        if currentBMI < 30 { return "Overweight" }
+        return "Obese"
+    }
+    
     private var streak: Int { zenAPI.progress.streak_days }
     private var recoveryRate: Int { zenAPI.progress.recovery_rate }
 
@@ -71,7 +87,7 @@ struct ProgressViewTab: View {
 
     var body: some View {
         ZStack {
-            Color(red: 250/255, green: 250/255, blue: 252/255).ignoresSafeArea()
+            ZenBackgroundView()
 
             VStack(spacing: 0) {
                 // ── TOP BAR Pinned ──────────────────────────────────────
@@ -80,40 +96,26 @@ struct ProgressViewTab: View {
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 30) {
 
-                    // ── AI ZEN COACH CARD ────────────────────────────────────
-                    AIPersonalizedCard()
-
-                    // ── HERO MASTERY JOURNEY ─────────────────────────────────
-                    HeroMasteryPathView()
-                        .padding(.horizontal, 24)
-
-                    // ── RECENT ACTIVITY (14 days) ────────────────────────────
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("RECENT ACTIVITY")
-                            .font(.system(size: 11, weight: .black))
-                            .foregroundColor(.gray.opacity(0.5))
-                            .kerning(1.5)
-                            .padding(.horizontal, 24)
-                        RecentActivityBar()
-                            .padding(.horizontal, 8)
-                    }
+                    // Empty space for padding under header
+                    Spacer().frame(height: 10)
 
                     // ── STATS CARDS ──────────────────────────────────────────
                     HStack(spacing: 15) {
                         ActivityStatCard(
-                            icon: "clock.fill",
-                            iconColor: Color(red: 65/255, green: 182/255, blue: 255/255),
-                            value: "1440", // per user request
-                            label: "TOTAL MINS"
+                            icon: "flame.fill",
+                            iconColor: Color.orange,
+                            value: "\(activityManager.totalCalories)",
+                            label: "TOTAL CALORIES"
                         )
                         ActivityStatCard(
                             icon: "waveform.path.ecg",
                             iconColor: Color(red: 34/255, green: 197/255, blue: 94/255),
-                            value: "24", // per user request
+                            value: "\(activityManager.sessionRecords.count)",
                             label: "SESSIONS"
                         )
                     }
                     .padding(.horizontal, 24)
+                    
 
                     // ── WEEKLY PERFORMANCE CHART ─────────────────────────────
                     VStack(alignment: .leading, spacing: 20) {
@@ -137,132 +139,7 @@ struct ProgressViewTab: View {
                             .padding(.horizontal, 24)
                     }
 
-                    // ── UPCOMING AWARDS ──────────────────────────────────────
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("UPCOMING AWARDS")
-                            .font(.system(size: 11, weight: .black))
-                            .foregroundColor(.gray.opacity(0.5))
-                            .kerning(1.5)
-                            .padding(.horizontal, 24)
 
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 15) {
-                                ForEach(awards, id: \.days) { award in
-                                    RewardBadge(
-                                        day: "\(award.days)",
-                                        title: award.title.uppercased(),
-                                        isUnlocked: streak >= award.days
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 24)
-                        }
-                    }
-                    .padding(.top, 10)
-
-                    // ── CONSISTENCY GRID (119-day challenge) ─────────────────
-                    VStack(alignment: .leading, spacing: 15) {
-                        Text("CONSISTENCY IS KEY")
-                            .font(.system(size: 12, weight: .black))
-                            .foregroundColor(.gray.opacity(0.5))
-                            .kerning(1.5)
-                            .padding(.horizontal, 24)
-
-                        VStack(alignment: .leading, spacing: 18) {
-                            Text("119-Day Challenge")
-                                .font(.system(size: 18, weight: .black, design: .rounded))
-                                .foregroundColor(Color(red: 26/255, green: 32/255, blue: 44/255))
-
-                            // Date range selector
-                            HStack {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("START DATE")
-                                        .font(.system(size: 10, weight: .black))
-                                        .foregroundColor(.gray.opacity(0.6))
-                                    Button { showStartDatePicker.toggle() } label: {
-                                        Text(startDate.formatted(date: .abbreviated, time: .omitted))
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(AppTheme.primaryPurple)
-                                    }
-                                }
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Text("END DATE")
-                                        .font(.system(size: 10, weight: .black))
-                                        .foregroundColor(.gray.opacity(0.6))
-                                    Button { showEndDatePicker.toggle() } label: {
-                                        Text(endDate.formatted(date: .abbreviated, time: .omitted))
-                                            .font(.system(size: 14, weight: .bold))
-                                            .foregroundColor(AppTheme.primaryPurple)
-                                    }
-                                }
-                            }
-                            .sheet(isPresented: $showStartDatePicker) {
-                                NavigationView {
-                                    DatePicker("Start", selection: Binding(
-                                        get: { startDate },
-                                        set: { startInterval = $0.timeIntervalSince1970 }
-                                    ), displayedComponents: .date)
-                                    .datePickerStyle(.graphical)
-                                    .navigationTitle("Start Date")
-                                    .navigationBarItems(trailing: Button("Done") { showStartDatePicker = false })
-                                }
-                            }
-                            .sheet(isPresented: $showEndDatePicker) {
-                                NavigationView {
-                                    DatePicker("End", selection: Binding(
-                                        get: { endDate },
-                                        set: { endInterval = $0.timeIntervalSince1970 }
-                                    ), displayedComponents: .date)
-                                    .datePickerStyle(.graphical)
-                                    .navigationTitle("End Date")
-                                    .navigationBarItems(trailing: Button("Done") { showEndDatePicker = false })
-                                }
-                            }
-
-                            // Grid
-                            LazyVGrid(columns: Array(repeating: GridItem(.fixed(14), spacing: 5), count: 17),
-                                      alignment: .leading, spacing: 5) {
-                                ForEach(0..<min(totalDays, 119), id: \.self) { index in
-                                    let date = Calendar.current.date(byAdding: .day, value: index, to: startDate)!
-                                    let key  = gridFmt.string(from: date)
-                                    let status = activityDict[key]
-                                    let isToday = Calendar.current.isDateInToday(date)
-
-                                    RoundedRectangle(cornerRadius: 3)
-                                        .fill(
-                                            status == "done"   ? AppTheme.primaryPurple :
-                                            status == "missed" ? Color.red.opacity(0.5) :
-                                            isToday            ? AppTheme.primaryPurple.opacity(0.2) :
-                                                                 Color.gray.opacity(0.15)
-                                        )
-                                        .frame(width: 14, height: 14)
-                                }
-                            }
-
-                            HStack {
-                                Text("\(completedDays) / \(min(totalDays, 119)) Days Completed")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(.gray)
-                                Spacer()
-                                Text("🔥 Keep going!")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .foregroundColor(AppTheme.primaryPurple)
-                            }
-
-                            // Legend
-                            HStack(spacing: 14) {
-                                legendItem(color: AppTheme.primaryPurple, label: "Done")
-                                legendItem(color: .red.opacity(0.5), label: "Missed")
-                                legendItem(color: .gray.opacity(0.15), label: "Future")
-                            }
-                        }
-                        .padding(20)
-                        .background(Color.white)
-                        .cornerRadius(25)
-                        .shadow(color: Color.black.opacity(0.02), radius: 10, y: 5)
-                        .padding(.horizontal, 24)
-                    }
 
                     // ── HEALTH STATUS + BMI CARD ─────────────────────────────
                     VStack(alignment: .leading, spacing: 15) {
@@ -282,37 +159,45 @@ struct ProgressViewTab: View {
 
                             // Health status display
                             VStack(alignment: .leading, spacing: 15) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text("HEALTH STATUS")
-                                            .font(.system(size: 10, weight: .black))
-                                            .foregroundColor(.gray.opacity(0.6))
-                                        Text(healthStatus)
-                                            .font(.system(size: 16, weight: .bold))
-                                            .foregroundColor(AppTheme.primaryPurple)
+                                if showAnalysis {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 5) {
+                                            Text("HEALTH STATUS")
+                                                .font(.system(size: 10, weight: .black))
+                                                .foregroundColor(.gray.opacity(0.6))
+                                            Text(healthStatus)
+                                                .font(.system(size: 16, weight: .bold))
+                                                .foregroundColor(AppTheme.primaryPurple)
+                                        }
+                                        Spacer()
+                                        ZStack {
+                                            Circle()
+                                                .stroke(AppTheme.primaryPurple.opacity(0.1), lineWidth: 6)
+                                                .frame(width: 50, height: 50)
+                                            Circle()
+                                                .trim(from: 0, to: CGFloat(recoveryRate) / 100)
+                                                .stroke(AppTheme.primaryPurple, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                                                .frame(width: 50, height: 50)
+                                                .rotationEffect(.degrees(-90))
+                                            Text("\(recoveryRate)%")
+                                                .font(.system(size: 10, weight: .black))
+                                        }
                                     }
-                                    Spacer()
-                                    ZStack {
-                                        Circle()
-                                            .stroke(AppTheme.primaryPurple.opacity(0.1), lineWidth: 6)
-                                            .frame(width: 50, height: 50)
-                                        Circle()
-                                            .trim(from: 0, to: CGFloat(recoveryRate) / 100)
-                                            .stroke(AppTheme.primaryPurple, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                                            .frame(width: 50, height: 50)
-                                            .rotationEffect(.degrees(-90))
-                                        Text("\(recoveryRate)%")
-                                            .font(.system(size: 10, weight: .black))
-                                    }
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+
+                                    Text("BMI: \(String(format: "%.1f", bmi)) — \(healthStatus). Your \(streak)-day streak shows \(streak > 7 ? "strong" : "growing") consistency. Recovery rate \(recoveryRate)%.")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(.gray)
+                                        .lineSpacing(4)
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
 
-                                Text("BMI: \(String(format: "%.1f", bmi)) — \(healthStatus). Your \(streak)-day streak shows \(streak > 7 ? "strong" : "growing") consistency. Recovery rate \(recoveryRate)%.")
-                                    .font(.system(size: 12, weight: .medium))
-                                    .foregroundColor(.gray)
-                                    .lineSpacing(4)
-
-                                Button(action: {}) {
-                                    Text("VIEW FULL ANALYSIS")
+                                Button(action: {
+                                    withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) {
+                                        showAnalysis.toggle()
+                                    }
+                                }) {
+                                    Text(showAnalysis ? "HIDE ANALYSIS" : "VIEW FULL ANALYSIS")
                                         .font(.system(size: 11, weight: .black))
                                         .foregroundColor(.white)
                                         .frame(maxWidth: .infinity)
@@ -323,9 +208,7 @@ struct ProgressViewTab: View {
                                 }
                             }
                             .padding(25)
-                            .background(Color.white)
-                            .cornerRadius(25)
-                            .overlay(RoundedRectangle(cornerRadius: 25).stroke(Color.gray.opacity(0.05), lineWidth: 1))
+                            .glassCard(cornerRadius: 25)
 
                             // Save Changes Button
                             Button(action: saveChanges) {
@@ -353,14 +236,7 @@ struct ProgressViewTab: View {
                             .disabled(isSaving || showSaveSuccess || ageInput.isEmpty || weightInput.isEmpty || heightInput.isEmpty)
                         }
                         .padding(25)
-                        .background(
-                            ZStack {
-                                Color.white
-                                LinearGradient(colors: [Color.white, Color(red: 0.98, green: 0.98, blue: 1)], startPoint: .top, endPoint: .bottom)
-                            }
-                        )
-                        .cornerRadius(35)
-                        .shadow(color: Color.black.opacity(0.03), radius: 25, y: 15)
+                        .glassCard(cornerRadius: 35)
                         .padding(.horizontal, 24)
                     }
 
@@ -373,6 +249,12 @@ struct ProgressViewTab: View {
                             .padding(.horizontal, 24)
 
                         VStack(spacing: 15) {
+                            let streak = Int(zenAPI.progress.streak_days)
+                            let shotsCount = zenAPI.journeyShots.count
+                            let canUpload = streak >= 15 && (streak / 15) > shotsCount
+                            let nextMilestone = ((shotsCount + 1) * 15)
+                            let daysToNext = nextMilestone - streak
+
                             PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
                                 HStack {
                                     ZStack {
@@ -384,31 +266,43 @@ struct ProgressViewTab: View {
                                                 .clipShape(RoundedRectangle(cornerRadius: 15))
                                         } else {
                                             RoundedRectangle(cornerRadius: 15)
-                                                .fill(AppTheme.primaryPurple.opacity(0.05))
+                                                .fill(canUpload ? AppTheme.primaryPurple.opacity(0.05) : Color.gray.opacity(0.05))
                                                 .frame(width: 55, height: 55)
-                                            Image(systemName: "camera.viewfinder")
+                                            Image(systemName: canUpload ? "camera.viewfinder" : "lock.fill")
                                                 .font(.system(size: 20))
-                                                .foregroundColor(AppTheme.primaryPurple)
+                                                .foregroundColor(canUpload ? AppTheme.primaryPurple : .gray.opacity(0.5))
                                         }
                                     }
                                     VStack(alignment: .leading, spacing: 5) {
-                                        Text("Tap to capture your transformation")
+                                        Text(canUpload ? "Tap to capture your transformation" : "Journey Shot Locked")
                                             .font(.system(size: 14, weight: .bold))
-                                        Text("Photo + stats will be saved to server")
-                                            .font(.system(size: 11))
-                                            .foregroundColor(.gray)
+                                            .foregroundColor(canUpload ? .black : .gray)
+                                        
+                                        if canUpload {
+                                            Text("Photo + stats will be saved to server")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(.gray)
+                                        } else {
+                                            Text("Complete \(daysToNext) more days streak to unlock")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(AppTheme.primaryPurple.opacity(0.7))
+                                        }
                                     }
                                     .padding(.leading, 10)
                                     Spacer()
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.system(size: 22))
-                                        .foregroundColor(AppTheme.primaryPurple)
+                                    
+                                    if canUpload {
+                                        Image(systemName: "plus.circle.fill")
+                                            .font(.system(size: 22))
+                                            .foregroundColor(AppTheme.primaryPurple)
+                                    }
                                 }
                                 .padding(20)
                                 .background(Color.white)
                                 .cornerRadius(20)
-                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(AppTheme.primaryPurple.opacity(0.1), lineWidth: 1))
+                                .overlay(RoundedRectangle(cornerRadius: 20).stroke(canUpload ? AppTheme.primaryPurple.opacity(0.1) : Color.gray.opacity(0.1), lineWidth: 1))
                             }
+                            .disabled(!canUpload)
                             .onChange(of: selectedPhotoItem) { newItem in
                                 Task {
                                     if let data = try? await newItem?.loadTransferable(type: Data.self) {
@@ -424,24 +318,22 @@ struct ProgressViewTab: View {
                                         Image(systemName: "checkmark.circle.fill")
                                         Text("SHOT SAVED!")
                                     } else {
-                                        Image(systemName: "camera.fill")
-                                        Text("UPLOAD JOURNEY SHOT")
+                                        Image(systemName: canUpload ? "camera.fill" : "lock.fill")
+                                        Text(canUpload ? "UPLOAD JOURNEY SHOT" : "LOCKED")
                                     }
                                 }
                                 .font(.system(size: 14, weight: .black))
                                 .foregroundColor(.white)
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 52)
-                                .background(showShotSuccess ? Color.green : AppTheme.primaryPurple)
+                                .background(showShotSuccess ? Color.green : (canUpload ? AppTheme.primaryPurple : Color.gray.opacity(0.3)))
                                 .cornerRadius(18)
-                                .shadow(color: (showShotSuccess ? Color.green : AppTheme.primaryPurple).opacity(0.2), radius: 8, y: 4)
+                                .shadow(color: (showShotSuccess ? Color.green : (canUpload ? AppTheme.primaryPurple : Color.clear)).opacity(0.2), radius: 8, y: 4)
                             }
-                            .disabled(selectedImageData == nil || showShotSuccess)
+                            .disabled(!canUpload || selectedImageData == nil || showShotSuccess)
                         }
                         .padding(20)
-                        .background(Color.white)
-                        .cornerRadius(30)
-                        .shadow(color: Color.black.opacity(0.03), radius: 20, y: 10)
+                        .glassCard(cornerRadius: 30)
                         .padding(.horizontal, 24)
                     }
 

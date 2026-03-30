@@ -119,7 +119,7 @@ struct ExploreView: View {
     
     var body: some View {
         ZStack {
-            Color(red: 250/255, green: 250/255, blue: 252/255).ignoresSafeArea()
+            ZenBackgroundView()
             
             VStack(spacing: 0) {
                 // TOP BAR Pinned

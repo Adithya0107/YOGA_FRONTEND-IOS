@@ -1,43 +1,35 @@
 import SwiftUI
 
 struct PerformanceBarGraph: View {
-    @ObservedObject private var zenAPI = ZenAPIService.shared
+    @ObservedObject private var activityManager = ActivityManager.shared
     private let calendar = Calendar.current
-
-    private let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        return f
-    }()
-
-    private var activityDict: [String: ZenActivity] {
-        Dictionary(uniqueKeysWithValues: zenAPI.activities.map { ($0.date, $0) })
-    }
-
+    
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 30)
                 .fill(Color.white)
                 .shadow(color: Color.black.opacity(0.02), radius: 15, y: 10)
 
-            VStack(spacing: 25) {
-                HStack(alignment: .bottom, spacing: 15) { // Adjusted spacing for 6 items
-                    ForEach(0..<6, id: \.self) { i in
-                        let date = calendar.date(byAdding: .day, value: -(5 - i), to: Date())!
-                        let key  = dateFormatter.string(from: date)
-                        let entry = activityDict[key]
-                        let minutes = Double(entry?.minutes ?? 0)
-                        let maxMins: Double = 90  // normalize against 90 min max
-                        let height = max(8, min(140, minutes / maxMins * 140))
-                        let isDone = entry?.status == "done"
+            VStack(spacing: 0) {
+                HStack(alignment: .bottom, spacing: 12) {
+                    ForEach(0..<7, id: \.self) { i in
+                        let date = calendar.date(byAdding: .day, value: -(6 - i), to: Date())!
+                        let startOfDay = calendar.startOfDay(for: date)
+                        
+                        // Sum calories from all session records on this day
+                        let dayCalories = activityManager.sessionRecords
+                            .filter { calendar.isDate($0.date, inSameDayAs: startOfDay) }
+                            .reduce(0) { $0 + $1.caloriesBurned }
+                        
+                        let maxCalories: Double = 500 // 500 kcal goal for normalization
+                        let height = max(4, min(140, Double(dayCalories) / maxCalories * 140))
+                        let hasData = dayCalories > 0
 
-                        VStack(spacing: 12) {
-                            // Minutes label on top of bar
-                            if minutes > 0 {
-                                Text("\(Int(minutes))")
-                                    .font(.system(size: 8, weight: .black))
-                                    .foregroundColor(AppTheme.primaryPurple)
-                            }
+                        VStack(spacing: 8) {
+                            Text("\(dayCalories)")
+                                .font(.system(size: 8, weight: .black))
+                                .foregroundColor(hasData ? AppTheme.primaryPurple : .clear)
+                                .frame(height: 12)
 
                             ZStack(alignment: .bottom) {
                                 RoundedRectangle(cornerRadius: 8)
@@ -47,9 +39,9 @@ struct PerformanceBarGraph: View {
                                 RoundedRectangle(cornerRadius: 8)
                                     .fill(
                                         LinearGradient(
-                                            colors: isDone
+                                            colors: hasData
                                                 ? [AppTheme.primaryPurple, Color(red: 170/255, green: 130/255, blue: 255/255)]
-                                                : [Color.gray.opacity(0.3), Color.gray.opacity(0.1)],
+                                                : [Color.gray.opacity(0.1), Color.gray.opacity(0.05)],
                                             startPoint: .top, endPoint: .bottom
                                         )
                                     )
@@ -63,7 +55,6 @@ struct PerformanceBarGraph: View {
                         }
                     }
                 }
-                .padding(.top, 20)
             }
             .padding(20)
         }

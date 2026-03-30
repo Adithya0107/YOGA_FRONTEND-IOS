@@ -20,6 +20,7 @@ class NetworkMonitor: ObservableObject {
 
 struct UniversalVideoPlayer: View {
     let videoURL: String
+    let startTime: Int
     @Binding var isPlaying: Bool
     var onStateChange: ((Int) -> Void)?
     
@@ -45,7 +46,7 @@ struct UniversalVideoPlayer: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.black.opacity(0.05))
             } else {
-                VideoWebView(url: videoURL, isPlaying: $isPlaying, onStateChange: onStateChange)
+                VideoWebView(url: videoURL, startTime: startTime, isPlaying: $isPlaying, onStateChange: onStateChange)
             }
         }
         .cornerRadius(cornerRadius)
@@ -55,14 +56,16 @@ struct UniversalVideoPlayer: View {
 
 struct YouTubePlayerView: View {
     let videoURL: String
+    let startTime: Int
     @Binding var isPlaying: Bool
     var onStateChange: ((Int) -> Void)?
     
     var cornerRadius: CGFloat = 12
     var shadowRadius: CGFloat = 5
     
-    init(videoURL: String, isPlaying: Binding<Bool> = .constant(false), cornerRadius: CGFloat = 12, shadowRadius: CGFloat = 5, onStateChange: ((Int) -> Void)? = nil) {
+    init(videoURL: String, startTime: Int = 0, isPlaying: Binding<Bool> = .constant(false), cornerRadius: CGFloat = 12, shadowRadius: CGFloat = 5, onStateChange: ((Int) -> Void)? = nil) {
         self.videoURL = videoURL
+        self.startTime = startTime
         self._isPlaying = isPlaying
         self.cornerRadius = cornerRadius
         self.shadowRadius = shadowRadius
@@ -70,12 +73,13 @@ struct YouTubePlayerView: View {
     }
     
     var body: some View {
-        UniversalVideoPlayer(videoURL: videoURL, isPlaying: $isPlaying, onStateChange: onStateChange, cornerRadius: cornerRadius, shadowRadius: shadowRadius)
+        UniversalVideoPlayer(videoURL: videoURL, startTime: startTime, isPlaying: $isPlaying, onStateChange: onStateChange, cornerRadius: cornerRadius, shadowRadius: shadowRadius)
     }
 }
 
 struct VideoWebView: UIViewRepresentable {
     let url: String
+    let startTime: Int
     @Binding var isPlaying: Bool
     var onStateChange: ((Int) -> Void)?
     
@@ -181,7 +185,8 @@ struct VideoWebView: UIViewRepresentable {
                         'rel': 0,
                         'controls': 1,
                         'showinfo': 0,
-                        'autoplay': 1
+                        'autoplay': 1,
+                        'start': \(startTime)
                     },
                     events: {
                         'onStateChange': onPlayerStateChange

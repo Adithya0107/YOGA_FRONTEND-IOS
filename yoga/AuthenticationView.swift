@@ -26,9 +26,10 @@ struct AuthenticationView: View {
     @State private var showResetConfirmation = false
     @AppStorage("isAuthenticated") private var isAuthenticated = false
     @AppStorage("hasAccount") private var hasAccount = false
-    @AppStorage("userId") private var storedUserId: Int = 0
+    @AppStorage("user_id") private var storedUserId: Int = 0
     @AppStorage("userFullName") private var storedFullName: String = ""
     @AppStorage("userEmail") private var storedEmail: String = ""
+    @AppStorage("userPhoneNumber") private var storedPhoneNumber: String = ""
     
     // Form State
     @State private var fullName = ""
@@ -37,6 +38,7 @@ struct AuthenticationView: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var isPasswordVisible = false
+    @State private var isConfirmPasswordVisible = false
     @State private var rememberMe = false
     @State private var forgotPasswordEmail = ""
     
@@ -102,6 +104,7 @@ struct AuthenticationView: View {
     @State private var experience: String = ""
     @State private var focusArea: String = ""
     @State private var frequency: String = ""
+    @State private var dietaryPlan: String = ""
     
     // Persistent Storage (Updating at the end of survey)
     @AppStorage("userAge") private var storedAge: String = ""
@@ -113,6 +116,7 @@ struct AuthenticationView: View {
     @AppStorage("userExperience") private var storedExperience: String = ""
     @AppStorage("userFocusArea") private var storedFocusArea: String = ""
     @AppStorage("userFrequency") private var storedFrequency: String = ""
+    @AppStorage("userDietaryPreference") private var storedDietaryPreference: String = ""
     
     // OTP State
     @State private var otpDigits: [String] = Array(repeating: "", count: 6)
@@ -127,11 +131,12 @@ struct AuthenticationView: View {
     let experienceOptions = ["Beginner", "Intermediate", "Advanced", "All"]
     let focusOptions = ["Back Pain", "Core Strength", "Legs & Glutes", "Full Body"]
     let frequencyOptions = ["1-2 days", "3-4 days", "5-6 days", "Daily"]
+    let dietOptions = ["Vegetarian", "Non-Vegetarian", "Both"]
     
 
     var body: some View {
         ZStack {
-            AppTheme.neumorphicBackground
+            ZenBackgroundView()
                 .ignoresSafeArea()
             
             VStack(spacing: 0) {
@@ -190,7 +195,15 @@ struct AuthenticationView: View {
                                 removal: AnyTransition.move(edge: navigationDirection == .trailing ? .leading : .trailing).combined(with: .opacity)
                             ))
                     case .creatingPlan:
-                        CreatingPlanWrapperView(currentStep: $currentStep, isAuthenticated: $isAuthenticated, hasAccount: $hasAccount)
+                        CreatingPlanWrapperView(
+                            currentStep: $currentStep, 
+                            isAuthenticated: $isAuthenticated, 
+                            hasAccount: $hasAccount,
+                            fullName: fullName,
+                            email: email,
+                            phoneNumber: phoneNumber,
+                            password: password
+                        )
                             .transition(.opacity)
                     case .signIn:
                         signInView
@@ -240,6 +253,11 @@ struct AuthenticationView: View {
                 title: Text(successMessage.isEmpty ? "Error" : "Success"),
                 message: Text(successMessage.isEmpty ? errorMessage : successMessage),
                 dismissButton: .default(Text("OK")) {
+                    if !errorMessage.isEmpty && errorMessage.lowercased().contains("already exist") {
+                        withAnimation { self.currentStep = .signIn }
+                    } else if !successMessage.isEmpty && successMessage.lowercased().contains("existed") {
+                        withAnimation { self.currentStep = .signIn }
+                    }
                     successMessage = ""
                     errorMessage = ""
                 }
@@ -287,13 +305,14 @@ struct AuthenticationView: View {
         case 7: return !experience.isEmpty
         case 8: return !focusArea.isEmpty
         case 9: return !frequency.isEmpty
+        case 10: return !dietaryPlan.isEmpty
         default: return true
         }
     }
     
     private func advanceToNextSurveyStep() {
         navigationDirection = .trailing
-        if surveyStep < 9 {
+        if surveyStep < 10 {
             withAnimation(.easeInOut(duration: 0.4)) { surveyStep += 1 }
         } else {
             // Save all survey results to persistent storage before moving on
@@ -312,6 +331,7 @@ struct AuthenticationView: View {
         storedExperience = experience
         storedFocusArea = focusArea
         storedFrequency = frequency
+        storedDietaryPreference = dietaryPlan
         
         // Let CreatingPlanView handle the network request to ensure it doesn't get cancelled during view transitions.
     }
@@ -423,7 +443,7 @@ struct AuthenticationView: View {
                 
                 Rectangle()
                     .fill(AppTheme.authGradient)
-                    .frame(width: UIScreen.main.bounds.width * CGFloat(surveyStep) / 9.0, height: 6)
+                    .frame(width: UIScreen.main.bounds.width * CGFloat(surveyStep) / 10.0, height: 6)
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 5)
@@ -440,7 +460,7 @@ struct AuthenticationView: View {
                     HStack(spacing: 0) {
                         Text("\(surveyStep)")
                             .font(.system(size: 28, weight: .black))
-                        Text("/ 9")
+                        Text("/ 10")
                             .font(.system(size: 28, weight: .black))
                             .foregroundColor(Color.black.opacity(0.8))
                     }
@@ -464,6 +484,7 @@ struct AuthenticationView: View {
                     case 7: experienceSelectionContentView
                     case 8: focusSelectionContentView
                     case 9: frequencySelectionContentView
+                    case 10: dietSelectionContentView
                     default: 
                         Text("Step \(surveyStep)")
                             .font(.system(size: 38, weight: .black, design: .rounded))
@@ -641,6 +662,10 @@ struct AuthenticationView: View {
     private var frequencySelectionContentView: some View {
         selectionContentView(title: "Workout frequency?", options: frequencyOptions, selection: $frequency)
     }
+
+    private var dietSelectionContentView: some View {
+        selectionContentView(title: "Dietary plan?", options: dietOptions, selection: $dietaryPlan)
+    }
     
     @ViewBuilder
     private func selectionContentView(title: String, options: [String], selection: Binding<String>) -> some View {
@@ -680,6 +705,14 @@ struct AuthenticationView: View {
                 VStack(spacing: 24) {
                     NeumorphicTextField(title: "Full Name", placeholder: "Enter your name", text: $fullName, icon: "person")
                     NeumorphicTextField(title: "Phone Number", placeholder: "123-456-7890", text: $phoneNumber, icon: "phone", keyboardType: .phonePad)
+                        .onChange(of: phoneNumber) { newValue in
+                            let filtered = newValue.filter { "0123456789".contains($0) }
+                            if filtered.count > 10 {
+                                phoneNumber = String(filtered.prefix(10))
+                            } else {
+                                phoneNumber = filtered
+                            }
+                        }
                     NeumorphicTextField(title: "Email Address", placeholder: "Enter your email address", text: $email, icon: "envelope", keyboardType: .emailAddress)
                         .onChange(of: email) { newValue in
                             email = newValue.lowercased()
@@ -704,12 +737,12 @@ struct AuthenticationView: View {
                         .padding(.horizontal, 5)
                     }
 
-                    NeumorphicPasswordField(title: "Re-enter Password", placeholder: "••••••••", text: $confirmPassword, isVisible: $isPasswordVisible, showToggle: true)
+                    NeumorphicPasswordField(title: "Re-enter Password", placeholder: "••••••••", text: $confirmPassword, isVisible: $isConfirmPasswordVisible, showToggle: true)
                 }
                 
                 VStack(spacing: 20) {
                     Button(action: { 
-                        performRegistration()
+                        checkEmailAndProceed()
                     }) {
                         HStack {
                             if isLoading {
@@ -1158,7 +1191,7 @@ struct AuthenticationView: View {
                         .padding(.horizontal, 5)
                     }
 
-                    NeumorphicPasswordField(title: "Confirm Password", placeholder: "••••••••", text: $confirmNewPassword, isVisible: $isNewPasswordVisible, showToggle: false)
+                    NeumorphicPasswordField(title: "Confirm Password", placeholder: "••••••••", text: $confirmNewPassword, isVisible: $isConfirmPasswordVisible, showToggle: true)
                 }
                 
                 VStack(spacing: 20) {
@@ -1247,6 +1280,7 @@ struct AuthenticationView: View {
                                 self.storedUserId = uid
                                 self.storedFullName = user["name"] as? String ?? ""
                                 self.storedEmail = user["email"] as? String ?? ""
+                                self.storedPhoneNumber = user["phone_number"] as? String ?? ""
                                 
                                 // Restore profile data
                                 self.storedAge = user["age"] as? String ?? ""
@@ -1274,6 +1308,81 @@ struct AuthenticationView: View {
                         self.errorMessage = "Invalid email or password."
                     } else {
                         self.errorMessage = "Login failed (Status: \(httpResponse.statusCode))"
+                    }
+                    self.showAlert = true
+                }
+            }
+        }.resume()
+    }
+    
+    private func checkEmailAndProceed() {
+        if fullName.isEmpty || email.isEmpty || phoneNumber.isEmpty || password.isEmpty || confirmPassword.isEmpty {
+            self.errorMessage = "Missing credentials, fill all those"
+            self.showAlert = true
+            return
+        }
+        
+        guard isEmailValid(email) else {
+            self.errorMessage = "Please enter a valid email address."
+            self.showAlert = true
+            return
+        }
+        
+        if !isPasswordValid {
+            self.errorMessage = "Password does not meet requirements."
+            self.showAlert = true
+            return
+        }
+        
+        if password.trimmingCharacters(in: .whitespaces) != confirmPassword.trimmingCharacters(in: .whitespaces) {
+            self.errorMessage = "Passwords do not match."
+            self.showAlert = true
+            return
+        }
+        
+        isLoading = true
+        errorMessage = ""
+        
+        let parameters = ["email": email]
+        guard let url = URL(string: "\(AppTheme.baseURL)/check_email") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
+        } catch {
+            self.errorMessage = "Error preparing request"
+            self.showAlert = true
+            self.isLoading = false
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                if let error = error {
+                    self.errorMessage = error.localizedDescription
+                    self.showAlert = true
+                    return
+                }
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    self.errorMessage = "Server Error"
+                    self.showAlert = true
+                    return
+                }
+                
+                if httpResponse.statusCode == 200 {
+                    // Success! Skip OTP and move straight to survey
+                    self.navigationDirection = .trailing
+                    withAnimation { self.currentStep = .onboardingSurvey }
+                } else {
+                    if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let msg = json["message"] as? String {
+                        self.errorMessage = msg
+                    } else {
+                        self.errorMessage = "An account with this email already exists."
                     }
                     self.showAlert = true
                 }
@@ -1403,8 +1512,9 @@ struct AuthenticationView: View {
                 }
                 
                 if httpResponse.statusCode == 200 {
-                    // Step 2: Register user after successful OTP verification
-                    self.performRegistration()
+                    // Step 2: Go to survey after successful OTP verification
+                    self.navigationDirection = .trailing
+                    withAnimation { self.currentStep = .onboardingSurvey }
                 } else {
                     self.isLoading = false
                     if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let msg = json["message"] as? String {
@@ -1493,6 +1603,7 @@ struct AuthenticationView: View {
                                 self.storedUserId = uid
                                 self.storedFullName = self.fullName
                                 self.storedEmail = self.email
+                                self.storedPhoneNumber = self.phoneNumber
                             }
                         } catch {}
                     }
@@ -1733,15 +1844,7 @@ struct FeatureCard: View {
             }
         }
         .padding(20)
-        .background(
-            RoundedRectangle(cornerRadius: 28)
-                .fill(Color.white)
-                .shadow(color: Color.black.opacity(0.02), radius: 10, y: 5)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 28)
-                .stroke(Color.gray.opacity(0.05), lineWidth: 1)
-        )
+        .glassCard(cornerRadius: 28)
     }
 }
 
@@ -1773,12 +1876,7 @@ struct NeumorphicTextField: View {
                     .autocorrectionDisabled(true)
             }
             .padding(22)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(AppTheme.neumorphicBackground)
-                    .shadow(color: AppTheme.neumorphicShadowDark, radius: 4, x: 4, y: 4)
-                    .shadow(color: AppTheme.neumorphicShadowLight, radius: 4, x: -4, y: -4)
-            )
+            .glassCard(cornerRadius: 18)
         }
     }
 }
@@ -1823,12 +1921,7 @@ struct NeumorphicPasswordField: View {
                 }
             }
             .padding(22)
-            .background(
-                RoundedRectangle(cornerRadius: 18)
-                    .fill(AppTheme.neumorphicBackground)
-                    .shadow(color: AppTheme.neumorphicShadowDark, radius: 4, x: 4, y: 4)
-                    .shadow(color: AppTheme.neumorphicShadowLight, radius: 4, x: -4, y: -4)
-            )
+            .glassCard(cornerRadius: 18)
         }
     }
 }
@@ -1845,15 +1938,7 @@ struct SurveySelectionItem: View {
                 .foregroundColor(isSelected ? .white : Color(red: 100/255, green: 116/255, blue: 139/255))
                 .frame(maxWidth: .infinity)
                 .frame(height: 70)
-                .background(
-                    RoundedRectangle(cornerRadius: 25)
-                        .fill(isSelected ? AppTheme.primaryPurple : Color.white)
-                        .shadow(color: Color.black.opacity(0.03), radius: 10, x: 0, y: 5)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 25)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                )
+                .glassCard(cornerRadius: 25)
         }
     }
 }
@@ -1864,10 +1949,15 @@ struct CreatingPlanWrapperView: View {
     @Binding var isAuthenticated: Bool
     @Binding var hasAccount: Bool
     
+    let fullName: String
+    let email: String
+    let phoneNumber: String
+    let password: String
+    
     var body: some View {
         ZStack {
-            AppTheme.neumorphicBackground.ignoresSafeArea()
-            CreatingPlanView {
+            ZenBackgroundView().ignoresSafeArea()
+            CreatingPlanView(fullName: fullName, email: email, phoneNumber: phoneNumber, password: password) {
                 withAnimation {
                     hasAccount = true
                     isAuthenticated = true
@@ -1880,6 +1970,10 @@ struct CreatingPlanWrapperView: View {
 }
 
 struct CreatingPlanView: View {
+    let fullName: String
+    let email: String
+    let phoneNumber: String
+    let password: String
     var onComplete: () -> Void
     
     @State private var progress: CGFloat = 0.0
@@ -1887,7 +1981,10 @@ struct CreatingPlanView: View {
     @State private var showIconGlow: Bool = false
     
     // User Data for Personalization
-    @AppStorage("userId") private var userId: Int = 0
+    @AppStorage("user_id") private var userId: Int = 0
+    @AppStorage("userFullName") private var storedFullName: String = ""
+    @AppStorage("userEmail") private var storedEmail: String = ""
+    @AppStorage("userPhoneNumber") private var storedPhoneNumber: String = ""
     @AppStorage("userGoal") private var goal: String = "Fitness"
     @AppStorage("userWeight") private var weight: String = "70"
     @AppStorage("userExperience") private var experience: String = "Intermediate"
@@ -1897,12 +1994,14 @@ struct CreatingPlanView: View {
     @AppStorage("userHeight") private var height: String = ""
     @AppStorage("userActivityLevel") private var activityLevel: String = ""
     @AppStorage("userFrequency") private var frequency: String = ""
+    @AppStorage("userDietaryPreference") private var dietaryPlan: String = "Vegetarian"
     
     var steps: [String] {
         [
             "ANALYZING \(weight)KG BODY TYPE FOR \(goal.uppercased())...",
             "CUSTOMIZING \(experience.uppercased()) ROUTINES...",
             "OPTIMIZING FOR \(focusArea.uppercased()) RESULTS...",
+            "PREPARING \(dietaryPlan.uppercased()) DIET...",
             "AI COACH IS FINALIZING YOUR TIMELINE...",
             "YOUR PERSONALIZED JOURNEY STARTS NOW!"
         ]
@@ -2009,8 +2108,53 @@ struct CreatingPlanView: View {
     }
     
     private func syncProfileToServer() {
-        print("Starting syncProfileToServer...")
+        print("Starting registration and profile sync...")
+        
+        let registerParams: [String: Any] = [
+            "name": fullName,
+            "email": email,
+            "phone_number": phoneNumber,
+            "password": password
+        ]
+        
+        guard let regUrl = URL(string: "\(AppTheme.baseURL)/register") else { return }
+        var regReq = URLRequest(url: regUrl)
+        regReq.httpMethod = "POST"
+        regReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            regReq.httpBody = try JSONSerialization.data(withJSONObject: registerParams)
+        } catch { return }
+        
+        URLSession.shared.dataTask(with: regReq) { data, response, error in
+            if let error = error {
+                print("Registration error: \(error)")
+                return
+            }
+            if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 || httpResponse.statusCode == 201 {
+                if let data = data, let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                    if let uid = (json["user_id"] as? Int) ?? (json["user"] as? [String: Any])?["id"] as? Int {
+                        DispatchQueue.main.async {
+                            self.userId = uid
+                            self.storedFullName = self.fullName
+                            self.storedEmail = self.email
+                            self.storedPhoneNumber = self.phoneNumber
+                            
+                            // Now call update_profile
+                            self.updateProfile(with: uid)
+                        }
+                    }
+                }
+            } else {
+                print("Registration failed in CreatingPlanView")
+            }
+        }.resume()
+    }
+    
+    private func updateProfile(with uid: Int) {
         let profile: [String: String] = [
+            "name": fullName,
+            "phone_number": phoneNumber,
             "age": age,
             "gender": gender,
             "height": height,
@@ -2019,11 +2163,12 @@ struct CreatingPlanView: View {
             "activityLevel": activityLevel,
             "experience": experience,
             "focusArea": focusArea,
-            "frequency": frequency
+            "frequency": frequency,
+            "dietaryPlan": dietaryPlan
         ]
         
         let parameters: [String: Any] = [
-            "user_id": userId,
+            "user_id": uid,
             "profile": profile
         ]
         
@@ -2037,7 +2182,7 @@ struct CreatingPlanView: View {
             request.httpBody = try JSONSerialization.data(withJSONObject: parameters)
         } catch { return }
         
-        print("Sending update_profile for uid: \(userId)")
+        print("Sending update_profile for uid: \(uid)")
         
         let task = URLSession.shared.dataTask(with: request) { data, response, error in
             if let error = error {
@@ -2089,13 +2234,7 @@ struct SocialIconButton: View {
                 .font(.system(size: 24))
                 .foregroundColor(Color(red: 26/255, green: 32/255, blue: 44/255))
                 .frame(width: 64, height: 64)
-                .background(Color.white)
-                .cornerRadius(18)
-                .shadow(color: Color.black.opacity(0.04), radius: 10, y: 5)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.gray.opacity(0.1), lineWidth: 1)
-                )
+                .glassCard(cornerRadius: 18)
         }
     }
 }
